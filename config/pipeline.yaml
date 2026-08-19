@@ -1,0 +1,30 @@
+paths:
+  raw: data/raw
+  processed: data/processed
+  rejected: data/rejected
+  output: output
+  logs: logs
+
+quality_gate:
+  max_failed_checks: 2
+
+dedup:
+  fuzzy_threshold: 88
+  hire_date_window_days: 30
+  source_priority:
+    - globaltech_hris
+    - acquiredco_hris
+    - payroll
+    - benefits
+
+exchange_rates_to_usd:
+  USD: 1.00
+  EUR: 1.08
+  GBP: 1.27
+
+salary_bounds:
+  min: 15000
+  max: 2000000
+
+ingest:
+  page_size: 500
