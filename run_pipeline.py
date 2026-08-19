@@ -165,8 +165,15 @@ def run(config: dict) -> int:
     ghost_file = load.write_ghost_employees(ghost_payroll, OUTPUT)
     logger.info("Ghost employee records written: %s (%d rows)", ghost_file, len(ghost_payroll))
 
-    employees = dedup.dedup_id(employees, priority=source_priority)
-    employees = dedup.dedup_email(employees)
+    employees = dedup.dedup_id(
+        employees,
+        priority=source_priority,
+        duplicate_output_path=REJECTED / "duplicated_ids.csv",
+    )
+    employees = dedup.dedup_email(
+        employees,
+        duplicate_output_path=REJECTED / "duplicated_emails.csv",
+    )
 
     review = dedup.find_fuzzy_candidates(
         employees,

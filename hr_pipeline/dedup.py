@@ -36,6 +36,7 @@ def dedup_id(
     df: pd.DataFrame,
     source_col: str = "source_system",
     priority: list[str] | None = None,
+    duplicate_output_path: Path | None = None,
 ) -> pd.DataFrame:
     """Pass 1: exact employee_id match within company namespace.
 
@@ -52,6 +53,13 @@ def dedup_id(
         work["source_systems"] = work.get(source_col, pd.Series(["single_source"] * len(work)))
     if source_col not in work.columns:
         work[source_col] = work["source_systems"].astype("string").str.split(",").str[0]
+
+    duplicate_rows = work[work["employee_id"].duplicated(keep=False)].copy()
+    if duplicate_output_path is not None:
+        duplicate_rows["flag_reason"] = "Duplicate employee_id"
+        duplicate_output_path.parent.mkdir(parents=True, exist_ok=True)
+        duplicate_rows.to_csv(duplicate_output_path, index=False)
+        logger.info("Flagged %d duplicate employee IDs: %s", len(duplicate_rows), duplicate_output_path)
 
     work["_priority"] = work[source_col].map(lambda s: _source_rank(str(s), priority))
     work = work.sort_values(["employee_id", "_priority"], kind="mergesort")
@@ -84,7 +92,10 @@ def dedup_id(
     return kept.reset_index(drop=True)
 
 
-def dedup_email(df: pd.DataFrame) -> pd.DataFrame:
+def dedup_email(
+    df: pd.DataFrame,
+    duplicate_output_path: Path | None = None,
+) -> pd.DataFrame:
     """Pass 2: identical email across companies -> same person; keep first, tag provenance."""
     if df.empty or "email" not in df.columns:
         return df
@@ -105,6 +116,14 @@ def dedup_email(df: pd.DataFrame) -> pd.DataFrame:
     )
     dup_emails = work.dropna(subset=["_email_key"])
     dup_emails = dup_emails[dup_emails.duplicated(subset=["_email_key"], keep=False)]["_email_key"].unique()
+
+    if duplicate_output_path is not None:
+        duplicate_rows = work[work["_email_key"].isin(dup_emails)].copy()
+        duplicate_rows["flag_reason"] = "Duplicate email"
+        duplicate_rows = duplicate_rows.drop(columns=["_email_key"], errors="ignore")
+        duplicate_output_path.parent.mkdir(parents=True, exist_ok=True)
+        duplicate_rows.to_csv(duplicate_output_path, index=False)
+        logger.info("Flagged %d duplicate email rows: %s", len(duplicate_rows), duplicate_output_path)
 
     if len(dup_emails) > 0:
         logger.warning("Cross-company duplicate emails found: %d", len(dup_emails))
